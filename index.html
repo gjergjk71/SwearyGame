@@ -1,0 +1,121 @@
+<html>
+    <head>
+        <title>Movements</title>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+            integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    </head>
+    <body style="background-color:gray;">
+        
+        <div style="display: none;border: 1px solid blue;" id="players_info">
+
+        </div>
+        <center>
+            <canvas style="border-color: red;margin-top:5px;" id="myCanvas" height="463" width="870">
+                
+            </canvas>
+        </center>
+        <form id="messages_form">
+            <div class="form-group">
+                <label for="messages">Chat:</label>
+                <textarea readonly class="form-control" rows="10" id="messages"></textarea>
+            </div>
+                <div class="input-group mb-3">
+                    <input id="content" type="text" class="form-control" placeholder="Message..." aria-label="Message..."
+                        aria-describedby="basic-addon2" required>
+                    <div class="input-group-append">
+                        <button class="btn btn-warning" type="button">Enter</button>
+                    </div>
+                </div>
+        </form>
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.dev.js"></script>
+    </body>
+    <script>
+        var c = document.getElementById("myCanvas");
+        var ctx = c.getContext("2d");
+        const socket = io();
+        let player_initialised = undefined;
+        let secret = Math.random() * 100 + 10 * 5 // lol
+        socket.on("player_info",data => {
+            if (!player_initialised){
+                player_initialised = data;
+                window.setInterval(() => {
+                    socket.emit("prevent_timeout",player_initialised);
+                },3)
+            }
+        })
+        socket.on("players_info",data => {
+            ctx.clearRect(0, 0, c.width, c.height);
+            
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, c.width, c.height);
+            ctx.beginPath();
+
+            let players_info_div = document.getElementById("players_info");
+            players_info_div.innerHTML = ""
+            Object.keys(data).map(async player_key => {
+                let player = data[player_key]
+                let html = `
+                id: ${player.id}<br>
+                x: ${player.position.x}<br>
+                y: ${player.position.y}<br>
+                <hr><br>
+                `
+                players_info_div.innerHTML += html;
+
+                for (let x in player.bullets){
+                    let bullet = player.bullets[x];
+                    ctx.fillStyle = "blue";
+                    ctx.fillRect(bullet.x, bullet.y, bullet.w, bullet.h);
+                    ctx.stroke();
+                }
+                if (player.swears.length > 5){
+                    let data = await fetch("https://evilinsult.com/generate_insult.php?lang=en&type=json",{ mode: 'no-cors' })
+                    console.log(data);
+                }
+                if (player && player_initialised && player.id === player_initialised.id){
+                    let texts = player.swears.concat(player.congratulations)
+                    for (let x in texts){
+                        let current_text = texts[x]
+                        ctx.font = "20px Comic Sans MS";
+                        ctx.fillStyle = "red";
+                        ctx.textAlign = "center";
+                        ctx.fillText(current_text.message, current_text.x, current_text.y); 
+                    }
+                }
+                ctx.fillStyle = "purple";
+                ctx.fillRect(player.position.x, player.position.y, player.w,player.h);
+                ctx.stroke();
+            })
+        });
+        socket.on("new_message",message => {
+            document.getElementById("messages").innerHTML +=
+            `${message.player.id === player_initialised.id ? "(YoU)" : ""} ${message.username} - ${message.content}\n`
+        })
+        messages_form.onsubmit = e => {
+            e.preventDefault()
+            if (document.getElementById("content").value){
+                socket.emit("send_message",{
+                    player: player_initialised,
+                    username: "Guest",
+                    content: document.getElementById("content").value
+                })
+                document.getElementById("content").value = ""
+            }
+        }
+        socket.emit("join_game",{secret:secret});
+        socket.emit("get_players_info");
+        window.addEventListener("keydown",e => {
+            if (document.activeElement === document.body){
+                socket.emit(e.key, {name:"event",type:"keydown",key:e.key,player:player_initialised})
+            }
+        })
+        window.addEventListener("keyup", e => {
+            if (document.activeElement === document.body) {
+                socket.emit(e.key, {name:"event",type:"keyup",key:e.key,player:player_initialised})
+            }
+        })
+    </script>
+
+</html>
