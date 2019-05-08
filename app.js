@@ -16,6 +16,9 @@ app.use((req,res,next) => {
 app.use(cors())
 let canvas_info = { height: 463, width: 870}
 
+const PORT = 8000
+let server = http.listen(PORT, () => console.log(`running on port ${PORT}`));
+
 const rect_rect_collision = (rect1,rect2) => {
     if (rect1 && rect2) {
         var rect1_over_rect2_vertical = (rect1.y + rect1.h < rect2.y)
@@ -199,6 +202,3 @@ io.on("connection",socket => {
         io.emit("new_message",data);
     })
 })
-
-const PORT = 8000
-let server = http.listen(PORT,() => console.log(`running on port ${PORT}`));
